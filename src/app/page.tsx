@@ -1,0 +1,1 @@
+export default function Home() { return <main className="mx-auto max-w-3xl p-12"><h1 className="text-3xl font-bold">Biblioteca · LAB12</h1><p className="mt-4">Proyecto en preparación. Las API Routes y la tarea final están pendientes.</p></main>; }

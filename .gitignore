@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+.npm-cache/
+.local-config/
+*.log
+*.tmp
+src/generated/
+*.pem
+*.key
