@@ -61,7 +61,7 @@ Se validan tipos, JSON malformado y enteros; pages, si se informa, debe ser mayo
 que cero. La guía no establece un formato ni checksum obligatorio de ISBN: se
 acepta texto no vacío y se exige unicidad cuando se informa.
 
-## Endpoints
+## Parte 01 — API Routes
 
 | Método | Ruta | Respuesta correcta |
 |---|---|---|
@@ -121,8 +121,7 @@ revisar baseUrl y ejecutar en orden. Los POST guardan authorId y bookId reales.
 Verificar antes que gabo@example.com y el ISBN del docente no estén ocupados;
 los DELETE finales eliminan los ejemplos creados. Nunca usar IDs de datos ajenos.
 La colección incluye aserciones HTTP, cuerpos y casos negativos.
-No se ejecutó Postman: las capturas reales del usuario siguen pendientes en
-`evidencias/parte-01/`, donde se indica qué evidencias guardar.
+La colección está preparada para su ejecución manual; no se ejecutó Postman.
 
 ## Auditoría
 
@@ -139,11 +138,14 @@ No se utilizó --force. Pendiente actualización compatible del árbol de ESLint
 - prisma.config.ts: datasource del CLI.
 - src/generated/prisma/: cliente generado, ignorado.
 - src/lib/: conexión y validación de API.
-- src/app/api/authors/ y src/app/api/books/: cinco Route Handlers.
-- src/app/: página inicial y estilos.
+- src/app/api/authors/ y src/app/api/books/: API Routes de Parte 01 y TAREA.
+- src/app/: dashboard, catálogo, perfil de autor, layout y estilos.
+- src/components/: componentes reutilizables de interfaz.
+- src/types/: contratos JSON compartidos.
+- tests/: pruebas locales de lógica, contratos y componentes.
 - scripts/test-api.mjs: pruebas HTTP con limpieza.
 - postman/: colección importable.
-- evidencias/parte-01/: resultados y capturas pendientes.
+- evidencias/parte-01/resultados-http.json: resultados históricos de pruebas HTTP.
 
 ## TAREA — Implementación avanzada
 
@@ -280,23 +282,17 @@ combinados, debounce, navegación de páginas, edición y eliminación de la úl
 tarjeta, perfil sin libros y con datos, ID inexistente, presentación en móvil,
 tablet y escritorio y ausencia de errores de consola.
 
-## Capturas auténticas
-
-Pendientes de añadir por el usuario: inicio, catálogo con filtros y paginación,
-formularios y perfil de autor. No se generaron ni se incluyen imágenes simuladas.
-Las capturas de Postman de Parte 01 también siguen pendientes.
-
-## Despliegue
-
-Vercel pendiente. No se creó ni configuró un proyecto remoto y no existe una URL
-de despliegue confirmada. Añadir aquí la dirección después del despliegue manual,
-configurar variables privadas en Vercel y generar Prisma Client durante el build.
-
 ## Estado del proyecto
 
 - Parte 01 implementada, con sus pruebas HTTP históricas y colección Postman.
 - TAREA implementada en código y validada técnicamente con pruebas locales.
 - Validación visual e interacción real por el usuario pendientes.
-- Capturas auténticas pendientes.
-- Despliegue Vercel pendiente.
 - Se mantienen los avisos de desarrollo y la recomendación TLS documentados arriba.
+
+## Evidencias y entrega académica
+
+Las evidencias del Laboratorio N.º 12 se organizan en el documento académico **LAB12-WebAvanz**, elaborado para el curso de Desarrollo de Aplicaciones Web Avanzado.
+
+Este documento reúne la presentación de las funcionalidades desarrolladas, las capturas de pantalla correspondientes y los enlaces de entrega solicitados por el docente, incluyendo el repositorio GitHub y la aplicación desplegada en Vercel, una vez completada su validación y publicación.
+
+El presente README está destinado a documentar la implementación técnica, la arquitectura y el funcionamiento del sistema Biblioteca Atlas.
