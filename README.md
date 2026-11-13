@@ -1,7 +1,7 @@
-# LAB12 — Biblioteca API · Parte 01
+# Biblioteca Atlas — LAB12 · API y TAREA
 
 Laboratorio 12 de Desarrollo de Aplicaciones Web Avanzado, TECSUP.
-API REST para gestionar autores y libros con Next.js App Router, TypeScript,
+Aplicación de biblioteca con dashboard, catálogo y perfiles editoriales para gestionar autores y libros con Next.js App Router, TypeScript,
 Tailwind CSS, ESLint, Prisma ORM y PostgreSQL en Supabase (`lab12-biblioteca-api`).
 
 ## Entorno y ejecución
@@ -145,9 +145,158 @@ No se utilizó --force. Pendiente actualización compatible del árbol de ESLint
 - postman/: colección importable.
 - evidencias/parte-01/: resultados y capturas pendientes.
 
-## Estado y alcance pendiente
+## TAREA — Implementación avanzada
 
-Parte 01 implementada y probada por HTTP. Pendientes las capturas manuales de
-Postman. No se implementó TAREA: /api/books/search con búsqueda y paginación,
-/api/authors/[id]/stats, dashboard, vistas de libros y detalle de autor,
-formularios React, filtros avanzados ni despliegue Vercel.
+### Arquitectura
+
+Las páginas de App Router `/`, `/books` y `/authors/[id]` montan componentes
+interactivos que consumen las API mediante `src/lib/http.ts`. Prisma permanece
+en los Route Handlers del servidor y usa PostgreSQL en Supabase. Los modelos y
+contratos de la Parte 01 se conservan sin cambios. Los tipos JSON compartidos
+están en `src/types/library.ts`; `src/lib/advanced.ts` contiene lógica pura
+comprobable sin base de datos.
+
+### Búsqueda y paginación
+
+`GET /api/books/search` admite:
+
+| Parámetro | Contrato |
+|---|---|
+| search | contains del título, sin distinguir mayúsculas |
+| genre | coincidencia exacta |
+| authorName | contains del nombre del autor, sin distinguir mayúsculas |
+| page | entero positivo, predeterminado 1; máximo técnico 1 000 000 |
+| limit | entero de 1 a 50, predeterminado 10 |
+| sortBy | title, publishedYear o createdAt (predeterminado) |
+| order | asc o desc (predeterminado) |
+
+Los filtros se combinan con AND. Se usa `skip=(page-1)*limit` y `take=limit`.
+`findMany` y `count` se ejecutan con el mismo filtro en una transacción de lectura
+RepeatableRead para mantener consistencia. El segundo orden por id ascendente
+resuelve empates. Solo se aceptan campos de orden de la lista blanca.
+Parámetros numéricos vacíos, fraccionarios o fuera de límites devuelven 400.
+
+```json
+{"data":[],"pagination":{"page":1,"limit":10,"total":0,"totalPages":0,"hasNext":false,"hasPrev":false}}
+```
+
+Cada libro incluye autor (id, nombre y correo). Una página fuera de rango devuelve
+200 con data vacío, el total real y hasNext=false; hasPrev permite retroceder si
+existe alguna página. Una colección vacía tiene totalPages=0 y ambos indicadores
+false. No se utiliza información ficticia.
+
+### Estadísticas de autor
+
+`GET /api/authors/[id]/stats` consulta al autor y selecciona los campos necesarios
+de sus libros. Devuelve authorId, authorName, totalBooks, firstBook y latestBook
+({title,year}), averagePages, genres y longestBook/shortestBook ({title,pages}).
+Años nulos no intervienen en primer/último libro; páginas nulas no intervienen
+en promedio ni extremos. El promedio se redondea con Math.round. Los géneros se
+deduplican y ordenan. Si no hay datos para una métrica, el valor es null;
+para autores sin libros totalBooks es 0 y genres es []. Autor inexistente: 404;
+error interno: 500 sin detalles sensibles. Los empates se resuelven por id.
+
+### Dashboard y CRUD de autores
+
+Inicio obtiene los autores con sus libros desde `/api/authors` y calcula total
+de autores, libros, promedio por autor y géneros únicos. Presenta nombre, correo,
+nacionalidad y cantidad de libros. Registrar y editar abren un diálogo compartido
+que envía POST/PUT. Eliminar solicita confirmación explícita indicando la cascada
+sobre libros; después del DELETE se recargan los datos y se notifica el resultado.
+El enlace Ver libros lleva al perfil del autor.
+
+### Catálogo y gestión de libros
+
+`/books` usa exclusivamente `/api/books/search` para los resultados paginados.
+La búsqueda tiene debounce de 350 ms. AbortController y una bandera de vigencia
+impiden que respuestas anteriores sustituyan resultados recientes. Cambiar un
+filtro vuelve a página 1; los controles siguen disponibles durante la consulta.
+Los géneros disponibles y nombres de autores se obtienen de la API de autores.
+El selector por autor utiliza el contrato parcial authorName: si dos autores
+comparten nombre, se incluyen ambos, tal como corresponde a esta búsqueda.
+
+Hay orden por título, año o fecha, dirección asc/desc, total de resultados,
+9 libros por página y controles anterior/siguiente deshabilitados cuando procede.
+Las tarjetas muestran título, autor, género, año, páginas, ISBN y descripción.
+Las portadas son composiciones tipográficas CSS propias, sin imágenes externas.
+Crear y editar usan el diálogo Book y POST/PUT existentes; eliminar usa DELETE
+con confirmación. La colección y las opciones se actualizan tras guardar.
+
+### Perfil editorial
+
+`/authors/[id]` consume los tres GET de autor, estadísticas y libros en paralelo.
+Muestra biografía, email, nacionalidad, nacimiento, métricas, géneros y catálogo.
+Permite editar el autor mediante PUT y crear libros mediante POST con el autor
+actual preseleccionado. Un autor sin libros tiene un estado vacío útil; un ID
+inexistente presenta un mensaje y navegación de regreso. Los fallos permiten
+reintentar sin exponer información interna.
+
+### Componentes, diseño y validaciones
+
+`src/components/` contiene Dashboard, Catalog, AuthorProfile, Editor y las piezas
+Heading, Empty y BookCards. El layout mantiene navegación consistente, enlace
+para saltar al contenido, identidad Atlas y pie de página. La interfaz combina
+verde bosque, salvia, crema y dorado, títulos serif y texto sans-serif. CSS adapta
+navegación, tablas, tarjetas y formularios a escritorio, tablet y móvil.
+
+Los formularios tienen etiquetas, required, tipo email, título de al menos tres
+caracteres y páginas enteras positivas. Los mensajes de API se presentan en el
+diálogo y junto a campos identificables, con aria-invalid. ISBN sigue la regla
+existente: texto opcional no vacío cuando se informa y unicidad en PostgreSQL.
+Los diálogos conservan foco nativo, permiten Escape y piden confirmación antes
+de descartar cambios. Se deshabilita el guardado durante solicitudes; cargas,
+éxitos, errores y estados vacíos tienen mensajes explícitos. Se respetan las
+preferencias de movimiento reducido y los estados de foco del teclado.
+
+### Pruebas automatizadas de esta etapa
+
+```bash
+node --test tests/*.test.mjs
+npm run lint
+npx tsc --noEmit
+npm run build
+npx prisma validate
+npx prisma generate
+```
+
+Resultado: 10 pruebas locales correctas; lint, TypeScript, build y Prisma correctos.
+La suite cubre filtros combinados, parámetros inválidos, límites, metadatos,
+estadísticas sin libros y con nulos, consultas de búsqueda y contratos de handlers
+con Prisma simulado, errores 404/500, escape HTML y restricciones del formulario.
+La transpilación de componentes para pruebas usa TypeScript ya instalado.
+Node puede emitir un aviso de detección de módulo al importar advanced.ts;
+no afecta al resultado ni requiere cambiar el formato del proyecto.
+
+No se inició servidor ni navegador en esta etapa. No se ejecutó el script HTTP
+de Parte 01, Postman ni escrituras de prueba contra Supabase. Las 44 pruebas HTTP
+anteriores pertenecen exclusivamente a Parte 01. Los tests de la TAREA no prueban
+interacciones de navegador ni conectividad de producción.
+
+### Validación visual manual pendiente
+
+El usuario deberá ejecutar localmente `npm run dev` y comprobar: dashboard real,
+CRUD completo con casos de error, cierre de diálogos y foco por teclado, filtros
+combinados, debounce, navegación de páginas, edición y eliminación de la última
+tarjeta, perfil sin libros y con datos, ID inexistente, presentación en móvil,
+tablet y escritorio y ausencia de errores de consola.
+
+## Capturas auténticas
+
+Pendientes de añadir por el usuario: inicio, catálogo con filtros y paginación,
+formularios y perfil de autor. No se generaron ni se incluyen imágenes simuladas.
+Las capturas de Postman de Parte 01 también siguen pendientes.
+
+## Despliegue
+
+Vercel pendiente. No se creó ni configuró un proyecto remoto y no existe una URL
+de despliegue confirmada. Añadir aquí la dirección después del despliegue manual,
+configurar variables privadas en Vercel y generar Prisma Client durante el build.
+
+## Estado del proyecto
+
+- Parte 01 implementada, con sus pruebas HTTP históricas y colección Postman.
+- TAREA implementada en código y validada técnicamente con pruebas locales.
+- Validación visual e interacción real por el usuario pendientes.
+- Capturas auténticas pendientes.
+- Despliegue Vercel pendiente.
+- Se mantienen los avisos de desarrollo y la recomendación TLS documentados arriba.
