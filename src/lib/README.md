@@ -1,5 +1,6 @@
-# Conexión futura desde el servidor
+# Servidor
 
-Prisma moderno utiliza `@prisma/adapter-pg` con `DATABASE_URL` para PostgreSQL.
-Crear el singleton de Prisma aquí cuando existan modelos y se genere el cliente.
-No importar el cliente desde componentes de navegador. Esta etapa no establece conexiones.
+`prisma.ts` exporta la instancia reutilizable de Prisma 7 con `@prisma/adapter-pg`.
+El generador escribe el cliente en `src/generated/prisma` (ignorado por Git).
+Los Route Handlers importan esta instancia; no importarla desde el navegador.
+`api.ts` contiene validación de entradas y respuestas de error sin secretos.
