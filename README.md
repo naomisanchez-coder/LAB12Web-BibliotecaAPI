@@ -296,3 +296,94 @@ Las evidencias del Laboratorio N.º 12 se organizan en el documento académico *
 Este documento reúne la presentación de las funcionalidades desarrolladas, las capturas de pantalla correspondientes y los enlaces de entrega solicitados por el docente, incluyendo el repositorio GitHub y la aplicación desplegada en Vercel, una vez completada su validación y publicación.
 
 El presente README está destinado a documentar la implementación técnica, la arquitectura y el funcionamiento del sistema Biblioteca Atlas.
+
+## Mejora adicional: perfiles visuales de autores
+
+### Motivación
+
+Aunque Biblioteca Atlas fue desarrollado como una práctica académica para aplicar
+conocimientos de Next.js, API Routes, Prisma y PostgreSQL, se decidió enriquecer
+la experiencia del usuario incorporando soporte para fotografías de los autores.
+La mejora busca una aplicación más acogedora y cercana para los lectores,
+facilitando la identificación visual de los escritores y una presentación más
+humana de la colección, sin cambiar su identidad editorial.
+
+### Implementación y estado real
+
+Author incorpora `profileImageUrl String?`. Se revisó el SQL propuesto antes de
+aplicarlo: únicamente `ALTER TABLE "Author" ADD COLUMN "profileImageUrl" TEXT`.
+El campo es nullable, no modifica los identificadores, relaciones ni datos previos.
+Los GET de autores incluyen el nuevo campo; los POST/PUT conservan sus contratos
+anteriores y no admiten asignar referencias de fotos desde entradas del cliente.
+Omitir fotografías continúa siendo válido para todas las operaciones existentes.
+
+El formulario de autor incluye PhotoPicker para seleccionar JPEG, PNG o WebP de
+hasta 2 MB, mostrar nombre de archivo y vista previa, reemplazar la selección o
+quitarla. Se inspeccionan los bytes sin confiar en nombre, extensión ni MIME del
+navegador; createImageBitmap decodifica el contenido y rechaza imágenes corruptas.
+La vista previa admite hasta 25 megapíxeles, utiliza una URL blob local y la libera
+al cambiar o cerrar. Una selección inválida conserva la vista previa anterior.
+
+**La subida, sustitución y eliminación persistentes están deshabilitadas.**
+Guardar autor solo guarda los campos de texto; no envía el archivo ni cambia
+profileImageUrl. El botón de guardar fotografía está deshabilitado y el formulario
+explica la limitación. Quitar vista previa no elimina una fotografía almacenada.
+No se subieron imágenes de prueba ni se creó/configuró un bucket de Storage.
+
+AuthorAvatar muestra las referencias ya asociadas en dashboard y perfil del autor,
+con recorte circular, object-fit cover, texto alternativo y fallback de iniciales
+ante ausencia, URL no permitida o fallo de carga. Solo se admiten URLs HTTPS del
+proyecto `wkqoyfsjhcyyqmhwutml.supabase.co`, bajo la ruta pública
+`author-avatars/{authorId}/{identificador-unico}.jpg|png|webp`, sin parámetros,
+fragmentos ni credenciales. No se habilitan dominios externos arbitrarios.
+Actualmente no hay fotografías asociadas por este flujo: el campo queda preparado
+para una futura asociación autorizada.
+
+### Autorización y Storage pendientes
+
+La aplicación no dispone de autenticación ni autorización administrativa. No se
+introdujeron endpoints públicos con service_role, claves en NEXT_PUBLIC_, políticas
+de escritura indiscriminada ni operaciones de borrado de objetos.
+
+Para habilitar persistencia se requiere primero una identidad verificable y una
+política de autorización que limite la administración de fotos. Después:
+
+1. Crear y configurar `author-avatars`, con lectura pública solo si se desean
+   fotos públicas, pero sin permisos públicos de escritura o eliminación.
+2. Implementar un handler de servidor que autentique y autorice cada operación,
+   limite tamaño y frecuencia y verifique el autor al que se asocia el archivo.
+3. Validar **en servidor** tamaño, formato real y decodificación completa; las
+   firmas binarias por sí solas y la validación del navegador no bastan.
+4. Generar rutas únicas en servidor y evitar aceptar rutas arbitrarias o nombres
+   de archivo del usuario. Usar credenciales administrativas solo en servidor.
+5. Subir el objeto nuevo y actualizar la referencia de forma controlada antes de
+   limpiar únicamente el objeto anterior gestionado por la aplicación; ante un
+   fallo, conservar la fotografía previa y compensar el objeto nuevo si procede.
+
+Estos pasos describen configuración futura, no operaciones ya implementadas.
+No se requiere ni se solicita una clave administrativa para la vista previa local.
+
+### Usabilidad y beneficios
+
+Se conservan la paleta Atlas y las funcionalidades de Parte 01 y TAREA. La
+navegación señala la sección activa mediante aria-current; los avatares mantienen
+tamaños consistentes y se adaptan a móvil. El estado vacío de autores ofrece una
+acción directa para iniciar el registro. El formulario bloquea reenvíos duplicados
+con una referencia síncrona además del estado de carga y conserva los valores
+cuando una operación falla. Los botones de acciones tienen mayor área en móvil.
+
+La mejora aplica conocimientos de modelos opcionales, componentes reutilizables,
+accesibilidad, tratamiento de archivos y separación entre vista previa y permisos
+de almacenamiento. Facilita reconocer y organizar autores sin introducir datos
+ficticios ni sacrificar la seguridad para simular una subida funcional.
+
+### Validaciones de esta mejora
+
+Se ejecutaron lint, TypeScript, build, prisma validate y prisma generate.
+La suite local pasó 15 pruebas, incluidas las 10 anteriores y cinco nuevas sobre
+formatos/tamaños, URLs controladas, iniciales/fallback, estado inicial del selector
+y compatibilidad de authorData sin permitir escrituras de referencias de imagen.
+Las firmas de ejemplo prueban detección de formato, no decodificación completa.
+Las interacciones de selección, reemplazo, eliminación de vista previa, foco y
+renderizado responsive requieren comprobación manual; no se ejecutó navegador,
+servidor de desarrollo, Postman, subida real ni despliegue en esta etapa.
