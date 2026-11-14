@@ -39,3 +39,37 @@ test('tarjeta escapa contenido y muestra acciones solo si funcionan',()=>{
 test('formularios incluyen etiquetas, restricciones y autor preseleccionado',()=>{
  const {Editor}=load('src/components/editor.tsx');const html=renderToStaticMarkup(React.createElement(Editor,{kind:'book',authorId:'a',authors:[{id:'a',name:'Autora'}],onClose:()=>{},onSaved:()=>{}}));assert.ok(html.includes('minLength="3"'));assert.ok(html.includes('min="1"'));assert.ok(html.includes('value="a" selected'));assert.ok(html.includes('aria-labelledby="editor-title"'));assert.ok(html.includes('Cancelar'));
 });
+test('fotografías: firmas reales y límites independientes de extensión o MIME',()=>{
+ const {validatePhotoBytes}=load('src/lib/photos.ts');
+ assert.equal(validatePhotoBytes(new Uint8Array([255,216,255,0])),'image/jpeg');
+ assert.equal(validatePhotoBytes(new Uint8Array([137,80,78,71,13,10,26,10])),'image/png');
+ assert.equal(validatePhotoBytes(new TextEncoder().encode('RIFF0000WEBP')),'image/webp');
+ assert.throws(()=>validatePhotoBytes(new TextEncoder().encode('<svg></svg>')));
+ assert.throws(()=>validatePhotoBytes(new Uint8Array(0)));
+ assert.throws(()=>validatePhotoBytes(new Uint8Array(2*1024*1024+1)));
+});
+test('URL de foto controlada y fallback para fuentes ajenas',()=>{
+ const {controlledPhotoUrl,initials}=load('src/lib/photos.ts');
+ assert.equal(initials(' Gabriel García Márquez '),'GG');
+ const valid='https://wkqoyfsjhcyyqmhwutml.supabase.co/storage/v1/object/public/author-avatars/author-1/photo-1.jpg';
+ assert.equal(controlledPhotoUrl(valid),valid);
+ for(const url of ['javascript:alert(1)','data:image/svg+xml,xxx','https://evil.test/avatar.png',valid+'?x=1',valid.replace('.jpg','.svg'),valid.replace('/author-1/','/../')])assert.equal(controlledPhotoUrl(url),null);
+});
+test('avatar sin foto y con error conserva iniciales accesibles',()=>{
+ const {AuthorAvatar}=load('src/components/author-avatar.tsx');
+ const html=renderToStaticMarkup(React.createElement(AuthorAvatar,{name:'Gabriel García',url:'https://evil.test/a.jpg'}));assert.ok(html.includes('Iniciales de Gabriel García'));assert.ok(!html.includes('<img'));
+ const valid='https://wkqoyfsjhcyyqmhwutml.supabase.co/storage/v1/object/public/author-avatars/a/p.jpg';
+ const fallback=load('src/components/author-avatar.tsx',{'react':{useState:()=>[valid,()=>{}]}}).AuthorAvatar({name:'Gabriel García',url:valid});
+ assert.ok(renderToStaticMarkup(fallback).includes('Iniciales de Gabriel García'));
+});
+test('selector anuncia vista previa local, restricciones y subida deshabilitada',()=>{
+ const {PhotoPicker}=load('src/components/photo-picker.tsx');
+ const html=renderToStaticMarkup(React.createElement(PhotoPicker,{name:'Autora',disabled:false}));
+ assert.ok(html.includes('Solo vista previa local'));assert.ok(html.includes('accept="image/jpeg,image/png,image/webp"'));assert.ok(html.includes('disabled=""'));assert.ok(html.includes('Guardar fotografía — no disponible'));assert.ok(!html.includes('name="profileImageUrl"'));
+});
+test('API anterior no admite escrituras de referencia de imagen desde el cliente',()=>{
+ const {authorData}=load('src/lib/api.ts',{'@/generated/prisma/client':{Prisma:{}}});
+ const data=authorData({name:'Autora',email:'autora@example.com',profileImageUrl:'https://evil.test/a.png'},true);
+ assert.equal(data.name,'Autora');assert.equal(data.email,'autora@example.com');assert.ok(!('profileImageUrl' in data));
+ const partial=authorData({bio:'Solo cambia biografía'});assert.ok(!('profileImageUrl' in partial));
+});
